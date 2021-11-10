@@ -1,4 +1,16 @@
 let nextEmp = 5
+require('dotenv').config();
+const {CONNECTION_STRING} = process.env;
+
+const Sequelize = require('sequelize');
+const sequelize = new Sequelize(CONNECTION_STRING,{
+    dialect: 'postgres',
+    dialectOptions: {
+        ssl: {
+            rejectUnauthorized: false
+        }
+    }
+});
 
 module.exports = {
     getUpcomingAppointments: (req, res) => {
@@ -16,7 +28,10 @@ module.exports = {
     approveAppointment: (req, res) => {
         let {apptId} = req.body
     
-        sequelize.query(`*****YOUR CODE HERE*****
+        sequelize.query(`UPDATE cc_appointments
+        SET approved = true
+        WHERE appt_id = '${apptId}';
+
         
         insert into cc_emp_appts (emp_id, appt_id)
         values (${nextEmp}, ${apptId}),
@@ -27,5 +42,44 @@ module.exports = {
                 nextEmp += 2
             })
             .catch(err => console.log(err))
+    },
+    getAllClients: (req, res) => {
+        sequelize.query(`SELECT * FROM cc_users AS u
+        JOIN cc_clients as c
+         ON u.user_id = c.user_id`)
+         .then( dbRes => {
+             res.status(200).send(dbRes[0]);
+         })
+         .catch( error => console.log(error))
+    },
+    getPendingAppointments: (req, res) => {
+        sequelize.query(`SELECT * FROM cc_appointments AS a
+        WHERE a.approved = false
+        ORDER BY a.date DESC;
+        `).then( dbRes => {
+            res.status(200).send(dbRes[0])
+        }).catch( error => console.log(error));
+    },
+    getPastAppointments: (req, res) => {
+        sequelize.query(`SELECT a.appt_id, a.date, a.service_type, a.notes, u.first_name, u.last_name
+        FROM cc_appointments a
+        JOIN cc_clients c ON a.client_id = c.client_id
+        JOIN cc_users u ON c.user_id = u.user_id
+        WHERE a.approved = true AND a.completed = true
+        ORDER BY a.date DESC`).then( dbRes => {
+            //console.log(dbRes);
+            res.status(200).send(dbRes[0]);
+        }).catch( error => console.log(error))
+    },
+    completeAppointment: (req, res) => {
+        const {apptId} = req.body;
+        sequelize.query(`
+           UPDATE cc_appointments
+           SET completed = true
+           WHERE appt_id = '${apptId}';
+        `)
+        .then( dbRes => {
+            res.status(200).send(dbRes[0]);
+        }).catch( error => console.log(error));
     }
 }
